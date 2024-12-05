@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoiceAgent Todo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .glass {
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 0, 0, 0.4);
+            box-shadow: 0 4px 24px 0 rgba(0, 0, 0, 0.12);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-800 to-gray-900 text-white min-h-screen">
+    <div class="container mx-auto py-10">
+        <h1 class="text-3xl font-bold text-center mb-8">VoiceAgent Todo</h1>
+        
+        <div class="max-w-2xl mx-auto">
+            <div class="glass rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-4 text-center">Upcoming Reminders</h2>
+                <div id="todoList" class="space-y-3">
+                    <!-- Todos will be loaded here -->
+                </div>
+                
+                <div class="mt-6 text-center text-gray-500">
+                    <p>Use VoiceAgent to schedule meetings and reminders!</p>
+                    <p class="text-sm">Say: "Schedule meeting tomorrow at 5 PM" or "Remind me to call John today"</p>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let lastCheckedTime = new Date();
+        
+        // Local Storage Functions
+        function saveRemindersToLocal(reminders) {
+            localStorage.setItem('voiceagent_reminders', JSON.stringify(reminders));
+            console.log('Saved reminders to local storage:', reminders);
+        }
+        
+        function getRemindersFromLocal() {
+            const stored = localStorage.getItem('voiceagent_reminders');
+            return stored ? JSON.parse(stored) : [];
+        }
+        
+        function addReminderToLocal(text, datetime) {
+            const reminders = getRemindersFromLocal();
+            const newReminder = { text, datetime };
+            reminders.push(newReminder);
+            saveRemindersToLocal(reminders);
+            return newReminder;
+        }
+        
+        function deleteReminderFromLocal(text, datetime) {
+            const reminders = getRemindersFromLocal();
+            const filteredReminders = reminders.filter(r => 
+                !(r.text === text && r.datetime === datetime)
+            );
+            saveRemindersToLocal(filteredReminders);
+        }
+        
+        function loadTodos() {
+            try {
+                console.log('Loading reminders from local storage...');
+                const todos = getRemindersFromLocal();
+                console.log('Local storage reminders:', todos);
+
+                const todoList = document.getElementById('todoList');
+                if (todos.length === 0) {
+                    todoList.innerHTML = '<p class="text-gray-500 text-center">No reminders yet</p>';
+                    return;
+                }
+
+                // Alarm functionality removed - handled by main app
+
+                todoList.innerHTML = todos.map((todo, index) => {
+                    const [date, time] = todo.datetime.split(' ');
+                    console.log(`Rendering task: ${todo.text} scheduled for ${date} ${time}`);
+                    return `
+                        <div class="glass p-4 rounded-lg border border-black flex justify-between items-center">
+                            <div class="flex-1">
+                                <div class="font-medium text-white">${todo.text}</div>
+                                <div class="text-sm text-white">
+                                    📅 ${date} ⏰ ${time}
+                                </div>
+                            </div>
+                            <button 
+                                onclick="deleteTask(${index}, '${todo.text}', '${todo.datetime}')"
+                                class="ml-4 p-2 text-red-500 hover:text-red-700 hover:bg-red-100 rounded-full transition-colors duration-200">
+                                Delete
+                            </button>
+                        </div>`;
+                }).join('');
+            } catch (error) {
+                console.error('Error loading todos:', error);
+                document.getElementById('todoList').innerHTML = 
+                    '<p class="text-red-500 text-center">Error loading reminders</p>';
+            }
+        }
+        
+        function deleteTask(index, text, datetime) {
+            if (!confirm('Are you sure you want to delete this task?')) {
+                return;
+            }
+            
+            try {
+                deleteReminderFromLocal(text, datetime);
+                console.log('Task deleted from local storage:', text, datetime);
+                loadTodos(); // Refresh the list
+            } catch (error) {
+                console.error('Error deleting task:', error);
+                alert('Error deleting task. Please try again.');
+            }
+        }
+        
+        function addReminder(text, datetime) {
+            try {
+                const reminder = addReminderToLocal(text, datetime);
+                console.log('Reminder added to local storage:', reminder);
+                loadTodos(); // Refresh the list
+            } catch (error) {
+                console.error('Error adding reminder:', error);
+            }
+        }
+
+        function initializeTodos() {
+            loadTodos();
+            setInterval(loadTodos, 10000);
+        }
+
+        document.addEventListener('DOMContentLoaded', initializeTodos);
+    </script>
+</body>
+</html>
