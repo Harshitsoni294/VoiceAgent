@@ -1,0 +1,25 @@
+// MCP file for Intent functionality
+from fastapi import APIRouter, Request
+import httpx
+import os
+
+router = APIRouter()
+
+@router.post("")
+async def intent_handler(request: Request):
+    data = await request.json()
+    text = data.get("text", "")
+    intent = "search"  # Default fallback
+    async with httpx.AsyncClient() as client:
+        if intent == "weather_time":
+            r = await client.get("http://localhost:8000/mcp/weather_time")
+            d = r.json()
+            return {"answer": f"Weather: {d.get('weather')}\nTime: {d.get('time')}"}
+        if intent == "fun_joke":
+            r = await client.get("http://localhost:8000/mcp/fun/joke")
+            d = r.json()
+            return {"answer": f"{d.get('setup', '')} {d.get('punchline', '')}"}
+        if intent == "reminders":
+            r = await client.post("http://localhost:8000/mcp/reminders", json={"text": text})
+            return {"answer": f"Reminder added: {text}"}
+        return {"answer": "Intent not recognized"}

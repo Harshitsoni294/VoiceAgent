@@ -1,0 +1,25 @@
+from fastapi import APIRouter
+from datetime import datetime
+
+router = APIRouter()
+
+@router.get("")
+async def weather_time():
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return {"weather": "22°C Sunny", "time": now}
+
+@router.get("/time")
+async def get_time():
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    current_time = datetime.now().strftime("%I:%M %p")
+    current_date = datetime.now().strftime("%A, %B %d, %Y")
+    
+    return {
+        "time": now,
+        "formatted_time": current_time,
+        "date": current_date
+    }
+
+@router.get("/weather")
+async def get_weather():
+    return {"weather": "22°C Sunny"}

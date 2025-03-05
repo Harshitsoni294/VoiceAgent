@@ -1,0 +1,36 @@
+// MCP file for Email Draft functionality
+from fastapi import APIRouter, Request
+import os
+import re
+import urllib.parse
+from datetime import datetime
+
+router = APIRouter()
+EMAIL_DIR = "email_drafts"
+os.makedirs(EMAIL_DIR, exist_ok=True)
+
+def parse_email_request(text):
+    email_match = re.search(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', text)
+    recipient = email_match.group(1) if email_match else "recipient@example.com"
+    text_lower = text.lower()
+    if "interview" in text_lower:
+        subject = "Interview Invitation"
+        body = "Dear Candidate,\n\nCongratulations! You have been shortlisted for an interview."
+    else:
+        subject = "Important Message"
+        body = "Dear Recipient,\n\nThank you for your time."
+    return {"to": recipient, "subject": subject, "body": body}
+
+def create_gmail_compose_url(email_data):
+    to = urllib.parse.quote(email_data["to"])
+    subject = urllib.parse.quote(email_data["subject"])
+    body = urllib.parse.quote(email_data["body"])
+    return f"https://mail.google.com/mail/?view=cm&fs=1&to={to}&su={subject}&body={body}"
+
+@router.post("/generate")
+async def generate_email_draft(request: Request):
+    data = await request.json()
+    text = data.get("text", "")
+    email_data = parse_email_request(text)
+    gmail_url = create_gmail_compose_url(email_data)
+    return {"email_data": email_data, "gmail_url": gmail_url, "preview": f"To: {email_data['to']}\nSubject: {email_data['subject']}"}

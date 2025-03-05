@@ -1,0 +1,21 @@
+// MCP file for Open App functionality
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
+
+router = APIRouter()
+
+@router.post("")
+async def open_app(request: Request):
+    data = await request.json()
+    command = data.get("command", "")
+    app_urls = {
+        "youtube": "https://www.youtube.com",
+        "gmail": "https://mail.google.com",
+        "google": "https://www.google.com",
+        "todo": "http://localhost:3000/todo",
+        "calendar": "http://localhost:3000/calendar"
+    }
+    for app, url in app_urls.items():
+        if app in command.lower():
+            return {"message": f"Opening {app}", "redirect_url": url, "speak": f"Opening {app}"}
+    return JSONResponse({"error": "App not found"}, status_code=404)
