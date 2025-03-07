@@ -1,3 +1,46 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Mobile viewport handling */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Handle mobile browser chrome (address bar, bottom bar) */
+html {
+  height: -webkit-fill-available;
+}
+
+body {
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+}
+
+#root {
+  height: 100vh;
+  height: -webkit-fill-available;
+}
+
+/* Custom CSS variable for viewport height that adjusts to mobile chrome */
+:root {
+  --vh: 1vh;
+}
+
+/* Media query for mobile devices */
+@media screen and (max-width: 768px) {
+  body {
+    height: 100vh;
+    height: -webkit-fill-available;
+    position: fixed;
+    width: 100%;
+  }
+  
+  #root {
+    height: calc(var(--vh, 1vh) * 100);
+    overflow: hidden;
+  }
+}

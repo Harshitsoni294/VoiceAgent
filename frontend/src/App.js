@@ -14,19 +14,37 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = React.useState(true); // For responsive drawer
   const [isMobile, setIsMobile] = React.useState(false);
 
-  // Check screen size
+  // Check screen size - responsive to actual viewport size, not device type
   React.useEffect(() => {
     const checkScreenSize = () => {
-      const mobile = window.innerWidth < 768;
+      const mobile = window.innerWidth < 768; // Based on actual screen width
       setIsMobile(mobile);
       if (mobile) {
-        setSidebarOpen(false); // Close sidebar on mobile by default
+        setSidebarOpen(false); // Close sidebar on small screens by default
+      } else {
+        setSidebarOpen(true); // Open sidebar on larger screens
       }
     };
 
+    // Set CSS custom property for viewport height that updates on resize
+    const setVH = () => {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    };
+    
     checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-    return () => window.removeEventListener('resize', checkScreenSize);
+    setVH();
+    
+    window.addEventListener('resize', () => {
+      checkScreenSize();
+      setVH();
+    });
+    window.addEventListener('orientationchange', setVH);
+    
+    return () => {
+      window.removeEventListener('resize', checkScreenSize);
+      window.removeEventListener('orientationchange', setVH);
+    };
   }, []);
 
   // Request notification permission on component mount
@@ -736,16 +754,16 @@ export default function App() {
   console.log('🔔 VoiceAgent with background alarm monitoring loaded');
 
   return (
-    <div className="flex h-screen bg-gradient-to-r from-gray-300 to-black">
-      {/* Sidebar - Desktop */}
-      {!isMobile && (
-        <div className="w-[20%] flex-shrink-0">
+    <div className="flex bg-gradient-to-r from-gray-300 to-black overflow-hidden" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
+      {/* Sidebar - Show only when screen is wide enough */}
+      {window.innerWidth >= 768 && !isMobile && (
+        <div className="w-80 flex-shrink-0">
           <SidebarContent />
         </div>
       )}
 
-      {/* Mobile Sidebar Overlay */}
-      {isMobile && sidebarOpen && (
+      {/* Mobile/Small Screen Sidebar Overlay */}
+      {(isMobile || window.innerWidth < 768) && sidebarOpen && (
         <>
           {/* Backdrop */}
           <div 
@@ -759,9 +777,15 @@ export default function App() {
         </>
       )}
 
-      {/* Chat Area - 80% Width */}
-      <div className="w-[80%] relative h-full">
-        <Chat setListening={setListening} setSpeaking={setSpeaking} />
+      {/* Chat Area - Fully Responsive */}
+      <div className="flex-1 relative min-w-0 w-full">
+        <Chat 
+          setListening={setListening} 
+          setSpeaking={setSpeaking} 
+          isMobile={isMobile}
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+        />
         
         {/* Voice Circles Overlay */}
         {listening && (
