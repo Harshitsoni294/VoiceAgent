@@ -75,6 +75,17 @@ export default function Chat({ setListening, setSpeaking, isMobile, sidebarOpen,
     return savedMuteState ? JSON.parse(savedMuteState) : { default: false, buddy: false };
   });
 
+  // User ID generation and management for session management
+  const [userId] = useState(() => {
+    let savedUserId = localStorage.getItem('buddy-user-id');
+    if (!savedUserId) {
+      // Generate a unique user ID: timestamp + random string
+      savedUserId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      localStorage.setItem('buddy-user-id', savedUserId);
+    }
+    return savedUserId;
+  });
+
   // Custom scrollbar styles and mobile viewport handling
   useEffect(() => {
     const style = document.createElement('style');
@@ -217,7 +228,7 @@ export default function Chat({ setListening, setSpeaking, isMobile, sidebarOpen,
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ text }),
+          body: JSON.stringify({ text, user_id: userId }),
         });
         const data = await response.json();
         answer = data.answer || "Hey! I'm having some trouble right now, but I'm still here for you!";

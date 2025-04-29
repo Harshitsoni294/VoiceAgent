@@ -51,3 +51,17 @@ models/
 *.key
 secrets.json
 config.json
+
+# Development and local setup files
+*start_*.bat
+setup_*.bat
+*.bat
+
+# Temporary files
+*.tmp
+*.backup
+*.bak
+
+# Local development configs (keep .env.example)
+local_config.json
+dev_settings.json
