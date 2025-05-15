@@ -1,10 +1,24 @@
+# Core web framework
 fastapi==0.104.1
-uvicorn==0.24.0
+uvicorn[standard]==0.24.0
+
+# LangChain ecosystem - compatible versions for Python 3.11
 langchain==0.1.16
 langchain-core==0.1.42
-langchain-google-genai==0.0.6
-langchain-chroma==0.1.0
-chromadb==0.4.24
 langchain-community==0.0.32
+langchain-google-genai==0.0.6
+langchain-chroma==0.1.2
+
+# Vector database
+chromadb==0.4.24
+
+# Google AI dependencies
+google-generativeai>=0.3.0
+
+# Utilities
 python-dotenv==1.0.0
-pydantic==2.9.2
+pydantic>=2.0.0,<3.0.0
+
+# Additional dependencies
+typing-extensions>=4.0.0
+anyio>=3.0.0

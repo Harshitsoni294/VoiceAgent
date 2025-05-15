@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: buddy-server
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --log-level info
+    rootDir: server_buddy
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: CHROMA_DB_PATH
+        value: ./chroma_db
+      - key: HOST
+        value: 0.0.0.0

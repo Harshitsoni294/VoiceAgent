@@ -246,9 +246,11 @@ async def root():
     return {"message": "Buddy server is running!", "version": "1.0.0"}
 
 if __name__ == "__main__":
+    # Disable reload in production (when PORT is set by platform)
+    is_production = os.getenv("PORT") is not None
     uvicorn.run(
         "main:app",
         host=os.getenv("HOST", "0.0.0.0"),
         port=int(os.getenv("PORT", 8001)),
-        reload=True
+        reload=not is_production
     )
