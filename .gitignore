@@ -7,9 +7,47 @@ yarn-error.log*
 dist/
 build/
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 .vscode/
 .idea/
 __pycache__/
 *.py[cod]
 .DS_Store
 Thumbs.db
+
+# Python virtual environments
+venv/
+env/
+.venv/
+.env/
+venv-buddy/
+
+# Server buddy specific
+../server_buddy/.env
+../server_buddy/venv-buddy/
+../server_buddy/__pycache__/
+../server_buddy/*.py[cod]
+../server_buddy/chroma_db/
+../server_buddy/*.db
+../server_buddy/*.sqlite
+../server_buddy/*.sqlite3
+
+# ChromaDB and vector databases
+chroma_db/
+*.db
+*.sqlite
+*.sqlite3
+
+# Model caches
+.cache/
+models/
+*.pkl
+*.joblib
+
+# API keys and secrets
+*.key
+secrets.json
+config.json
