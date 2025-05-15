@@ -35,9 +35,9 @@ function useSpeechRecognition({ onResult, onEnd }) {
 }
 
 function useSpeechSynthesis() {
-  const speak = (text, onEnd) => {
-    if (!window.speechSynthesis) {
-      console.error('Speech synthesis not supported');
+  const speak = (text, onEnd, isMuted) => {
+    if (!window.speechSynthesis || isMuted) {
+      console.log(isMuted ? 'Speech muted' : 'Speech synthesis not supported');
       if (onEnd) onEnd();
       return;
     }
@@ -46,7 +46,14 @@ function useSpeechSynthesis() {
     utter.text = text.replace(/http[^\s]+/g, ''); // Remove URLs from the text
     window.speechSynthesis.speak(utter);
   };
-  return { speak };
+  
+  const stopSpeaking = () => {
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+  };
+  
+  return { speak, stopSpeaking };
 }
 
 export default function Chat({ setListening, setSpeaking, isMobile, sidebarOpen, setSidebarOpen }) {
@@ -55,9 +62,18 @@ export default function Chat({ setListening, setSpeaking, isMobile, sidebarOpen,
     const savedMessages = localStorage.getItem('voiceagent-chat-messages');
     return savedMessages ? JSON.parse(savedMessages) : [];
   });
+  const [buddyMessages, setBuddyMessages] = useState(() => {
+    const savedBuddyMessages = localStorage.getItem('buddy-chat-messages');
+    return savedBuddyMessages ? JSON.parse(savedBuddyMessages) : [];
+  });
   const [input, setInput] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [selectedBot, setSelectedBot] = useState("default"); // New state for bot selection
+  const [isMuted, setIsMuted] = useState(() => {
+    const savedMuteState = localStorage.getItem('voiceagent-mute-state');
+    return savedMuteState ? JSON.parse(savedMuteState) : { default: false, buddy: false };
+  });
 
   // Custom scrollbar styles and mobile viewport handling
   useEffect(() => {
@@ -119,10 +135,24 @@ export default function Chat({ setListening, setSpeaking, isMobile, sidebarOpen,
   useEffect(() => {
     localStorage.setItem('voiceagent-chat-messages', JSON.stringify(messages));
   }, [messages]);
+
+  useEffect(() => {
+    localStorage.setItem('buddy-chat-messages', JSON.stringify(buddyMessages));
+  }, [buddyMessages]);
+  
+  // Save mute state to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('voiceagent-mute-state', JSON.stringify(isMuted));
+  }, [isMuted]);
   
   const clearChat = () => {
-    setMessages([]);
-    localStorage.removeItem('voiceagent-chat-messages');
+    if (selectedBot === "buddy") {
+      setBuddyMessages([]);
+      localStorage.removeItem('buddy-chat-messages');
+    } else {
+      setMessages([]);
+      localStorage.removeItem('voiceagent-chat-messages');
+    }
   };
   
   const { start, stop } = useSpeechRecognition({
@@ -137,7 +167,19 @@ export default function Chat({ setListening, setSpeaking, isMobile, sidebarOpen,
       setListening(false);
     },
   });
-  const { speak } = useSpeechSynthesis();
+  const { speak, stopSpeaking } = useSpeechSynthesis();
+  
+  const toggleMute = () => {
+    const newMuteState = { ...isMuted, [selectedBot]: !isMuted[selectedBot] };
+    setIsMuted(newMuteState);
+    
+    // If muting while speaking, stop current speech
+    if (newMuteState[selectedBot] && isSpeaking) {
+      stopSpeaking();
+      setIsSpeaking(false);
+      setSpeaking(false);
+    }
+  };
 
   const handleMic = () => {
     setIsListening(true);
@@ -155,42 +197,76 @@ export default function Chat({ setListening, setSpeaking, isMobile, sidebarOpen,
 
   const handleSend = async (text) => {
     if (!text) return;
-    setMessages((msgs) => [...msgs, { from: "user", text }]);
+    
+    // Add user message to appropriate chat history
+    if (selectedBot === "buddy") {
+      setBuddyMessages((msgs) => [...msgs, { from: "user", text }]);
+    } else {
+      setMessages((msgs) => [...msgs, { from: "user", text }]);
+    }
     setInput("");
 
     let answer = "";
     try {
-      const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/mcp';
+      if (selectedBot === "buddy") {
+        // Route to Buddy server
+        const BUDDY_API_URL = process.env.REACT_APP_BUDDY_API_URL || 'http://localhost:8001';
+        
+        const response = await fetch(`${BUDDY_API_URL}/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ text }),
+        });
+        const data = await response.json();
+        answer = data.answer || "Hey! I'm having some trouble right now, but I'm still here for you!";
+      } else {
+        // Route to default MCP servers
+        const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/mcp';
 
-      const response = await fetch(`${API_BASE_URL}/intent`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text }),
-      });
-      const data = await response.json();
-      answer = data.answer || JSON.stringify(data);
-      
-      // Check if this was a reminder creation and save locally
-      if (data.type === 'reminder' && data.reminder_data) {
-        saveReminderLocally(data.reminder_data.text, data.reminder_data.datetime);
-      }
-      
-      if (data.redirect_url) {
-        window.open(data.redirect_url, "_blank");
+        const response = await fetch(`${API_BASE_URL}/intent`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ text }),
+        });
+        const data = await response.json();
+        answer = data.answer || JSON.stringify(data);
+        
+        // Check if this was a reminder creation and save locally
+        if (data.type === 'reminder' && data.reminder_data) {
+          saveReminderLocally(data.reminder_data.text, data.reminder_data.datetime);
+        }
+        
+        if (data.redirect_url) {
+          window.open(data.redirect_url, "_blank");
+        }
       }
     } catch (e) {
-      answer = "Sorry, I couldn't fetch a response.";
+      answer = selectedBot === "buddy" 
+        ? "Hey! I'm having a little trouble connecting right now, but I'm still here for you. Can you try again?" 
+        : "Sorry, I couldn't fetch a response.";
     }
 
-    setMessages((msgs) => [...msgs, { from: "assistant", text: answer }]);
-    setIsSpeaking(true);
-    setSpeaking(true);
+    // Add assistant response to appropriate chat history
+    if (selectedBot === "buddy") {
+      setBuddyMessages((msgs) => [...msgs, { from: "assistant", text: answer, bot: selectedBot }]);
+    } else {
+      setMessages((msgs) => [...msgs, { from: "assistant", text: answer, bot: selectedBot }]);
+    }
+    
+    const currentBotMuted = isMuted[selectedBot];
+    if (!currentBotMuted) {
+      setIsSpeaking(true);
+      setSpeaking(true);
+    }
+    
     speak(answer, () => {
       setIsSpeaking(false);
       setSpeaking(false);
-    });
+    }, currentBotMuted);
   };
 
   return (
@@ -218,10 +294,25 @@ export default function Chat({ setListening, setSpeaking, isMobile, sidebarOpen,
         </div>
         
         {/* Header Buttons - Responsive */}
-        <div className={`flex items-center ${isMobile ? 'gap-0' : 'gap-2'}`}>
+        <div className={`flex items-center ${isMobile ? 'gap-1' : 'gap-2'}`}>
+          {/* Mute/Unmute Button */}
+          <button
+            onClick={toggleMute}
+            className={`${isMobile ? 'w-9 h-9 rounded-full flex items-center justify-center' : 'px-4 py-2 rounded-lg'} 
+              ${isMuted[selectedBot] 
+                ? 'bg-red-500 text-white hover:bg-red-600' 
+                : 'bg-green-500 text-white hover:bg-green-600'
+              } transition-colors`}
+            title={`${isMuted[selectedBot] ? 'Unmute' : 'Mute'} ${selectedBot === 'buddy' ? 'Buddy' : 'VoiceAgent'}`}
+          >
+            {isMobile 
+              ? (isMuted[selectedBot] ? '🔇' : '🔊') 
+              : (isMuted[selectedBot] ? '🔇 Muted' : '🔊 Sound')
+            }
+          </button>
+          
           <button 
             className={`${isMobile ? 'w-9 h-9 rounded-full flex items-center justify-center bg-white text-black hover:bg-gray-200 transition-colors' : 'px-4 py-2 rounded-lg bg-white text-black hover:bg-gray-200 transition-colors'}`}
-
             onClick={() => window.open('/todo', '_blank')}
           >
             {isMobile ? '📝' : 'ToDo'}
@@ -229,8 +320,6 @@ export default function Chat({ setListening, setSpeaking, isMobile, sidebarOpen,
 
           <button 
             className={`${isMobile ? 'w-9 h-9 rounded-full flex items-center justify-center bg-white text-black hover:bg-gray-200 transition-colors' : 'px-4 py-2 rounded-lg bg-white text-black hover:bg-gray-200 transition-colors'}`}
-
- 
             onClick={() => window.open('/calendar', '_blank')}
           >
             {isMobile ? '📅' : 'Calendar'}
@@ -251,30 +340,49 @@ export default function Chat({ setListening, setSpeaking, isMobile, sidebarOpen,
       {/* Messages Area - Scrollable */}
       <div className="flex-1 bg-gray-800 p-4 overflow-y-auto min-h-0 max-h-full custom-scrollbar w-full">
         <div className="w-full max-w-full mx-auto space-y-4">
-          {messages.length === 0 ? (
+          {(selectedBot === "buddy" ? buddyMessages : messages).length === 0 ? (
             <div className="text-center text-gray-500 mt-8">
-              <div className="text-4xl mb-4">🤖</div>
-              <p className="text-lg">Hello! How can I help you today?</p>
-              <p className="text-sm mt-2">Try: "Tell me a joke", "What's the weather?", "Open YouTube", "Schedule a meeting"</p>
+              <div className="text-4xl mb-4">{selectedBot === "buddy" ? "🤖" : "⚡"}</div>
+              <p className="text-lg">
+                {selectedBot === "buddy" 
+                  ? "Hey there! I'm Buddy, your friendly AI companion. Let's chat!" 
+                  : "Hello! How can I help you today?"
+                }
+              </p>
+              <p className="text-sm mt-2">
+                {selectedBot === "buddy"
+                  ? "Ask me anything! I remember our conversations and love getting to know you better."
+                  : "Try: \"Tell me a joke\", \"What's the weather?\", \"Open YouTube\", \"Schedule a meeting\""
+                }
+              </p>
             </div>
           ) : (
-            messages.map((msg, i) => (
+            (selectedBot === "buddy" ? buddyMessages : messages).map((msg, i) => (
               <div
                 key={i}
                 className={`mb-4 flex w-full ${msg.from === "user" ? "justify-end" : "justify-start"}`}
               >
-                <div
-                  className={`px-4 py-3 rounded-2xl shadow-sm ${
-                    isMobile 
-                      ? "max-w-[85%]" 
-                      : "max-w-xs lg:max-w-md"
-                  } ${
-                    msg.from === "user"
-                      ? "bg-blue-500 text-white rounded-br-none"
-                      : "bg-gray-700 text-gray-200 rounded-bl-none"
-                  }`}
-                >
-                  {msg.text}
+                <div className={`flex flex-col ${msg.from === "user" ? "items-end" : "items-start"}`}>
+                  {msg.from === "assistant" && (
+                    <div className="text-xs text-gray-400 mb-1 px-2">
+                      {msg.bot === "buddy" ? "🤖 Buddy" : "⚡ VoiceAgent"}
+                    </div>
+                  )}
+                  <div
+                    className={`px-4 py-3 rounded-2xl shadow-sm ${
+                      isMobile 
+                        ? "max-w-[85%]" 
+                        : "max-w-xs lg:max-w-md"
+                    } ${
+                      msg.from === "user"
+                        ? "bg-blue-500 text-white rounded-br-none"
+                        : msg.bot === "buddy"
+                        ? "bg-purple-600 text-white rounded-bl-none"
+                        : "bg-gray-700 text-gray-200 rounded-bl-none"
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
                 </div>
               </div>
             ))
@@ -284,6 +392,21 @@ export default function Chat({ setListening, setSpeaking, isMobile, sidebarOpen,
       
       {/* Input Area - Fixed Footer */}
       <div className="bg-gray-800 p-4 border-t border-gray-700 w-full flex-shrink-0">
+        {/* Bot Selector Row */}
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-gray-400 text-sm">Chatting with:</span>
+          <select
+            value={selectedBot}
+            onChange={(e) => setSelectedBot(e.target.value)}
+            className="bg-gray-700 text-white px-3 py-1 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            disabled={isListening || (isSpeaking && !isMuted[selectedBot])}
+          >
+            <option value="default">VoiceAgent (Default)</option>
+            <option value="buddy">Buddy (Friendly Chat)</option>
+          </select>
+        </div>
+        
+        {/* Input Row */}
         <div className="flex items-center gap-3 w-full max-w-full">
           <button
             onClick={handleMic}
@@ -292,7 +415,7 @@ export default function Chat({ setListening, setSpeaking, isMobile, sidebarOpen,
                 ? "bg-red-500 text-white animate-pulse" 
                 : "bg-blue-500 text-white hover:bg-blue-600 hover:scale-105"
             }`}
-            disabled={isSpeaking}
+            disabled={isSpeaking && !isMuted[selectedBot]}
           >
             {isListening ? "🎙️" : "🎤"}
           </button>
@@ -302,14 +425,14 @@ export default function Chat({ setListening, setSpeaking, isMobile, sidebarOpen,
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === "Enter" && handleSend(input)}
-            placeholder="Type your message or click the mic..."
-            disabled={isListening || isSpeaking}
+            placeholder={selectedBot === "buddy" ? "Chat with Buddy like a friend..." : "Type your message or click the mic..."}
+            disabled={isListening || (isSpeaking && !isMuted[selectedBot])}
           />
           
           <button
             onClick={() => handleSend(input)}
             className="bg-green-500 text-white px-6 py-3 rounded-full shadow-lg hover:bg-green-600 transition-all duration-200 hover:scale-105 flex-shrink-0"
-            disabled={isListening || isSpeaking || !input.trim()}
+            disabled={isListening || (isSpeaking && !isMuted[selectedBot]) || !input.trim()}
           >
             Send
           </button>
