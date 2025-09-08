@@ -43,7 +43,7 @@ Think of it as your **personal AI agent** in the browser!
 
 ## ⚙️ Setup & Installation  
 
-###1. Clone the Repository  
+### 1. Clone the Repository  
 ```bash
 git clone https://github.com/your-username/VoiceAgent.git
 cd VoiceAgent
