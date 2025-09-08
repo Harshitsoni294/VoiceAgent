@@ -66,3 +66,35 @@ Frontend runs on: http://localhost:3000
 
 🤝 Contributing
 Pull requests and suggestions are welcome!
+## ⚙️ Setup & Installation  
+
+### 1. Clone the Repository  
+```bash
+git clone https://github.com/your-username/VoiceAgent.git
+cd VoiceAgent
+```
+
+### 2. Backend Setup  
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
+
+### 3. Frontend Setup  
+```bash
+cd frontend
+npm install
+npm start
+```
+
+---
+
+## 🌐 Access  
+- Backend runs on: `http://127.0.0.1:8000`  
+- Frontend runs on: `http://localhost:3000`  
+
+---
+
+## 🤝 Contributing  
+Pull requests and suggestions are welcome!  
